@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mes Livres</title>
+<meta name="theme-color" content="#5b3a29">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+/* ===================== SECTION : STYLES ===================== */
+:root{
+  --bg:#f6f1ea; --card:#fff; --ink:#2b211b; --muted:#7a6b60; --line:#e4d9cc;
+  --brand:#5b3a29; --brand2:#a8693f;
+  --acheter:#c2410c; --alire:#1d4ed8; --lu:#15803d;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:90px}
+header{position:sticky;top:0;z-index:5;background:var(--brand);color:#fff;padding:12px 14px 0}
+header h1{margin:0 0 8px;font-size:1.2rem;display:flex;justify-content:space-between;align-items:center}
+header h1 button{background:none;border:0;color:#fff;font-size:1.3rem;cursor:pointer}
+.search{display:flex;gap:6px}
+.search input{flex:1;padding:10px 12px;border-radius:10px;border:0;font-size:1rem}
+.tabs{display:flex;gap:4px;margin-top:10px;overflow-x:auto}
+.tabs button{flex:1;background:transparent;border:0;color:#f3e6da;padding:10px 6px;font-size:.9rem;border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
+.tabs button.active{color:#fff;border-bottom-color:#f5c08a;font-weight:600}
+.toolbar{display:flex;gap:8px;padding:10px 14px;align-items:center}
+.toolbar select{padding:7px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:.85rem}
+.toolbar .count{margin-left:auto;color:var(--muted);font-size:.85rem}
+main{padding:0 14px}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.book{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;border-left:5px solid var(--line)}
+.book.a_acheter{border-left-color:var(--acheter)} .book.a_lire{border-left-color:var(--alire)} .book.lu{border-left-color:var(--lu)}
+.book .top{display:flex;justify-content:space-between;gap:8px}
+.book h3{margin:0;font-size:1rem}
+.book .meta{color:var(--muted);font-size:.85rem;margin-top:3px}
+.badge{font-size:.72rem;padding:3px 8px;border-radius:20px;color:#fff;white-space:nowrap;height:fit-content}
+.badge.a_acheter{background:var(--acheter)} .badge.a_lire{background:var(--alire)} .badge.lu{background:var(--lu)}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.tag{font-size:.75rem;background:#f1e7dc;padding:2px 7px;border-radius:6px}
+.actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.actions button,.actions a{font-size:.8rem;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;cursor:pointer}
+.actions .go{background:var(--brand2);color:#fff;border-color:var(--brand2)}
+.fab{position:fixed;right:18px;bottom:22px;width:60px;height:60px;border-radius:50%;border:0;background:var(--brand2);color:#fff;font-size:2rem;box-shadow:0 4px 12px rgba(0,0,0,.25);cursor:pointer}
+/* --- Fenêtres (formulaire, menu) --- */
+dialog{border:0;border-radius:14px;padding:0;width:min(560px,94vw);max-height:92vh}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg{padding:16px}
+.dlg h2{margin:0 0 12px;font-size:1.1rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.full{grid-column:1/-1}
+label{font-size:.8rem;color:var(--muted);display:block}
+label input,label select,label textarea{width:100%;margin-top:3px;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:.95rem;font-family:inherit}
+.row{display:flex;gap:6px}
+.row input{flex:1}
+.btn{padding:10px 14px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:.9rem;cursor:pointer}
+.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn.danger{color:#b91c1c;border-color:#fca5a5}
+.foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.warn{background:#fff4e5;border:1px solid #f5c08a;border-radius:8px;padding:8px 10px;font-size:.85rem;margin-top:10px;display:none}
+.stars span{font-size:1.5rem;cursor:pointer;color:#d6c7b8}
+.stars span.on{color:#e0a100}
+video{width:100%;border-radius:10px;background:#000}
+.toast{position:fixed;left:50%;bottom:95px;transform:translateX(-50%);background:#2b211b;color:#fff;padding:9px 16px;border-radius:20px;font-size:.88rem;opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ===================== SECTION : EN-TÊTE (recherche + onglets) ===================== -->
+<header>
+  <h1>📚 Mes Livres <button id="btnMenu" title="Menu">⋮</button></h1>
+  <div class="search"><input id="q" type="search" placeholder="Rechercher titre, auteur, ISBN… (dans tous les livres)"></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="a_acheter" class="active">À acheter</button>
+    <button data-tab="a_lire">À lire</button>
+    <button data-tab="lu">Lus</button>
+    <button data-tab="tous">Tous</button>
+  </nav>
+</header>
+
+<!-- ===================== SECTION : TRI / FILTRE ===================== -->
+<div class="toolbar">
+  <select id="sort">
+    <option value="priorite">Tri : priorité</option>
+    <option value="ajout">Tri : ajout récent</option>
+    <option value="titre">Tri : titre</option>
+    <option value="auteur">Tri : auteur</option>
+    <option value="lecture">Tri : date de lecture</option>
+  </select>
+  <select id="fGenre"><option value="">Tous genres</option></select>
+  <span class="count" id="count"></span>
+</div>
+
+<main id="list"></main>
+<button class="fab" id="btnAdd" title="Ajouter un livre">+</button>
+<div class="toast" id="toast"></div>
+
+<!-- ===================== SECTION : FORMULAIRE AJOUT / MODIFICATION ===================== -->
+<dialog id="dlgBook"><form class="dlg" id="form" method="dialog">
+  <h2 id="formTitle">Ajouter un livre</h2>
+  <div class="grid">
+    <label class="full">ISBN
+      <div class="row">
+        <input name="isbn" inputmode="numeric" placeholder="978…">
+        <button type="button" class="btn" id="btnScan" title="Scanner le code-barres">📷</button>
+        <button type="button" class="btn" id="btnLookup" title="Remplir depuis l'ISBN (connexion requise)">🔎</button>
+      </div>
+    </label>
+    <label class="full">Titre *<input name="titre" required></label>
+    <label>Auteur<input name="auteur" list="dlAuteurs"></label>
+    <label>Maison d'édition<input name="editeur" list="dlEditeurs"></label>
+    <label>Genre<input name="genre" list="dlGenres"></label>
+    <label>Statut
+      <select name="statut">
+        <option value="a_acheter">À acheter</option>
+        <option value="a_lire">Possédé, à lire</option>
+        <option value="lu">Lu</option>
+      </select>
+    </label>
+    <label>Priorité
+      <select name="priorite"><option value="1">Haute</option><option value="2" selected>Moyenne</option><option value="3">Basse</option></select>
+    </label>
+    <label>Prix (€)<input name="prix" type="number" step="0.01" min="0"></label>
+    <label class="full">Lien<input name="lien" type="url" placeholder="https://…"></label>
+    <label>Recommandé par<input name="recoPar"></label>
+    <label>Date de lecture<input name="dateLecture" type="date"></label>
+    <div class="full"><label>Ma note</label><div class="stars" id="stars"></div></div>
+    <label class="full">Notes<textarea name="notes" rows="2"></textarea></label>
+  </div>
+  <div class="warn" id="dupWarn"></div>
+  <div class="foot">
+    <button type="button" class="btn danger" id="btnDelete" style="margin-right:auto;display:none">Supprimer</button>
+    <button type="button" class="btn" id="btnCancel">Annuler</button>
+    <button type="submit" class="btn primary">Enregistrer</button>
+  </div>
+</form></dialog>
+<datalist id="dlAuteurs"></datalist><datalist id="dlEditeurs"></datalist><datalist id="dlGenres"></datalist>
+
+<!-- ===================== SECTION : SCANNER CODE-BARRES ===================== -->
+<dialog id="dlgScan"><div class="dlg">
+  <h2>Scanner l'ISBN</h2>
+  <video id="video" playsinline muted></video>
+  <div class="foot"><button class="btn" id="btnScanClose">Fermer</button></div>
+</div></dialog>
+
+<!-- ===================== SECTION : MENU (sauvegarde) ===================== -->
+<dialog id="dlgMenu"><div class="dlg">
+  <h2>Sauvegarde</h2>
+  <p style="font-size:.85rem;color:var(--muted)">Les livres sont stockés sur ce téléphone uniquement. Exporte régulièrement un fichier de sauvegarde.</p>
+  <div class="foot" style="justify-content:flex-start">
+    <button class="btn primary" id="btnExport">Exporter (JSON)</button>
+    <button class="btn" id="btnExportCsv">Exporter (CSV)</button>
+    <button class="btn" id="btnImport">Importer (JSON)</button>
+    <input type="file" id="fileImport" accept=".json,application/json" hidden>
+  </div>
+  <p id="stats" style="font-size:.85rem"></p>
+  <div class="foot"><button class="btn" id="btnMenuClose">Fermer</button></div>
+</div></dialog>
+
+<script>
+/* =====================================================================
+   SECTION 1 : DONNÉES (lecture / écriture dans le stockage local)
+   ===================================================================== */
+const KEY = 'mesLivres.v1';
+let books = [];
+try { books = JSON.parse(localStorage.getItem(KEY)) || []; } catch { books = []; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(books)); } catch { toast('⚠️ Enregistrement impossible'); } };
+
+const $ = s => document.querySelector(s);
+const STATUTS = { a_acheter:'À acheter', a_lire:'À lire', lu:'Lu' };
+const PRIOS = { 1:'Haute', 2:'Moyenne', 3:'Basse' };
+let tab = 'a_acheter', editId = null, note = 0;
+
+/* Normalise un texte pour comparer (minuscules, sans accents ni ponctuation) */
+const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+const esc = s => (s??'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* =====================================================================
+   SECTION 2 : AFFICHAGE DE LA LISTE
+   ===================================================================== */
+function render(){
+  const q = norm($('#q').value), g = $('#fGenre').value, sort = $('#sort').value;
+  // Une recherche cherche dans TOUS les livres (pour savoir en librairie si on l'a déjà lu)
+  let list = books.filter(b => q ? true : (tab==='tous' || b.statut===tab));
+  if (q) list = list.filter(b => norm([b.titre,b.auteur,b.editeur,b.isbn,b.genre,b.recoPar].join(' ')).includes(q));
+  if (g) list = list.filter(b => b.genre === g);
+
+  const cmp = {
+    priorite:(a,b)=>(a.priorite-b.priorite)||(b.ajout-a.ajout),
+    ajout:(a,b)=>b.ajout-a.ajout,
+    titre:(a,b)=>a.titre.localeCompare(b.titre,'fr'),
+    auteur:(a,b)=>(a.auteur||'').localeCompare(b.auteur||'','fr'),
+    lecture:(a,b)=>(b.dateLecture||'').localeCompare(a.dateLecture||'')
+  }[sort];
+  list.sort(cmp);
+
+  $('#count').textContent = list.length + ' livre' + (list.length>1?'s':'');
+  $('#list').innerHTML = list.length ? list.map(card).join('') :
+    `<div class="empty">${q ? 'Aucun livre trouvé : tu ne l\'as ni lu, ni noté.' : 'Aucun livre ici. Appuie sur + pour en ajouter.'}</div>`;
+  refreshLists();
+}
+
+/* Construit la carte HTML d'un livre */
+function card(b){
+  const tags = [
+    b.genre, b.statut==='a_acheter' && 'Priorité ' + PRIOS[b.priorite],
+    b.prix && (+b.prix).toFixed(2).replace('.',',') + ' €',
+    b.recoPar && 'Reco : ' + b.recoPar,
+    b.note && '★'.repeat(b.note),
+    b.dateLecture && 'Lu le ' + new Date(b.dateLecture).toLocaleDateString('fr-FR')
+  ].filter(Boolean).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+  const next = b.statut==='a_acheter' ? `<button class="go" data-act="achete" data-id="${b.id}">✔ Acheté</button>`
+            : b.statut==='a_lire'    ? `<button class="go" data-act="lu" data-id="${b.id}">✔ Lu</button>` : '';
+  return `<div class="book ${b.statut}">
+    <div class="top"><div><h3>${esc(b.titre)}</h3>
+      <div class="meta">${esc(b.auteur||'Auteur inconnu')}${b.editeur?' · '+esc(b.editeur):''}${b.isbn?' · '+esc(b.isbn):''}</div></div>
+      <span class="badge ${b.statut}">${STATUTS[b.statut]}</span></div>
+    ${tags?`<div class="tags">${tags}</div>`:''}
+    ${b.notes?`<div class="meta" style="margin-top:6px">${esc(b.notes)}</div>`:''}
+    <div class="actions">${next}
+      <button data-act="edit" data-id="${b.id}">Modifier</button>
+      ${b.lien?`<a href="${esc(b.lien)}" target="_blank" rel="noopener">Lien ↗</a>`:''}
+    </div></div>`;
+}
+
+/* Met à jour les listes de suggestions (auteurs, éditeurs, genres) et le filtre genre */
+function refreshLists(){
+  const uniq = k => [...new Set(books.map(b=>b[k]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+  const opts = k => uniq(k).map(v=>`<option value="${esc(v)}">`).join('');
+  $('#dlAuteurs').innerHTML = opts('auteur'); $('#dlEditeurs').innerHTML = opts('editeur'); $('#dlGenres').innerHTML = opts('genre');
+  const cur = $('#fGenre').value;
+  $('#fGenre').innerHTML = '<option value="">Tous genres</option>' + uniq('genre').map(v=>`<option ${v===cur?'selected':''}>${esc(v)}</option>`).join('');
+}
+
+/* =====================================================================
+   SECTION 3 : ACTIONS RAPIDES SUR LES CARTES (Acheté, Lu, Modifier)
+   ===================================================================== */
+$('#list').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-act]'); if (!btn) return;
+  const b = books.find(x => x.id === btn.dataset.id);
+  if (btn.dataset.act === 'edit') return openForm(b);
+  if (btn.dataset.act === 'achete') { b.statut = 'a_lire'; toast('Déplacé dans « À lire »'); }
+  if (btn.dataset.act === 'lu') { b.statut = 'lu'; b.dateLecture = b.dateLecture || new Date().toISOString().slice(0,10); toast('Bonne lecture terminée ! 📖'); }
+  save(); render();
+});
+
+/* =====================================================================
+   SECTION 4 : FORMULAIRE (ouvrir, note en étoiles, doublons, enregistrer)
+   ===================================================================== */
+const form = $('#form');
+function openForm(b){
+  editId = b ? b.id : null;
+  form.reset();
+  $('#formTitle').textContent = b ? 'Modifier le livre' : 'Ajouter un livre';
+  $('#btnDelete').style.display = b ? '' : 'none';
+  if (b) Object.keys(b).forEach(k => { if (form.elements[k]) form.elements[k].value = b[k] ?? ''; });
+  else form.elements.statut.value = (tab==='tous' ? 'a_acheter' : tab);
+  setNote(b ? (b.note||0) : 0);
+  checkDup();
+  $('#dlgBook').showModal();
+}
+/* Étoiles de notation (cliquer sur l'étoile déjà sélectionnée = remettre à 0) */
+function setNote(n){
+  note = n;
+  $('#stars').innerHTML = [1,2,3,4,5].map(i=>`<span data-n="${i}" class="${i<=n?'on':''}">★</span>`).join('');
+}
+$('#stars').addEventListener('click', e => { const n=+e.target.dataset.n; if(n) setNote(n===note?0:n); });
+
+/* Détection de doublon : même ISBN, ou même titre + auteur */
+function checkDup(){
+  const f = form.elements, t = norm(f.titre.value), a = norm(f.auteur.value), i = norm(f.isbn.value);
+  const dup = books.find(b => b.id!==editId && ((i && norm(b.isbn)===i) || (t && norm(b.titre)===t && (!a || !b.auteur || norm(b.auteur)===a))));
+  const w = $('#dupWarn');
+  if (dup) { w.style.display='block'; w.innerHTML = `⚠️ Déjà dans ta liste : <b>${esc(dup.titre)}</b> (${STATUTS[dup.statut]}${dup.dateLecture?', lu le '+new Date(dup.dateLecture).toLocaleDateString('fr-FR'):''})`; }
+  else w.style.display='none';
+}
+['titre','auteur','isbn'].forEach(n => form.elements[n].addEventListener('input', checkDup));
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(form));
+  f.titre = f.titre.trim(); if (!f.titre) return;
+  f.priorite = +f.priorite; f.note = note;
+  if (f.statut==='lu' && !f.dateLecture) f.dateLecture = new Date().toISOString().slice(0,10);
+  if (editId) Object.assign(books.find(b=>b.id===editId), f);
+  else books.push({ id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), ajout: Date.now(), ...f });
+  save(); $('#dlgBook').close(); render(); toast('Livre enregistré');
+});
+$('#btnCancel').onclick = () => $('#dlgBook').close();
+$('#btnDelete').onclick = () => {
+  const b = books.find(x=>x.id===editId);
+  if (confirm(`Supprimer « ${b.titre} » ?`)) { books = books.filter(x=>x.id!==editId); save(); $('#dlgBook').close(); render(); }
+};
+
+/* =====================================================================
+   SECTION 5 : ISBN — recherche en ligne (Open Library) et scan caméra
+   ===================================================================== */
+$('#btnLookup').onclick = async () => {
+  const isbn = form.elements.isbn.value.replace(/[^0-9X]/gi,'');
+  if (!isbn) return toast('Saisis ou scanne un ISBN');
+  if (!navigator.onLine) return toast('Pas de connexion : saisie manuelle');
+  try {
+    toast('Recherche…');
+    const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+    const d = (await r.json())['ISBN:'+isbn];
+    if (!d) return toast('ISBN introuvable, complète à la main');
+    const f = form.elements;
+    if (!f.titre.value) f.titre.value = d.title + (d.subtitle ? ' — ' + d.subtitle : '');
+    if (!f.auteur.value && d.authors) f.auteur.value = d.authors.map(a=>a.name).join(', ');
+    if (!f.editeur.value && d.publishers) f.editeur.value = d.publishers[0].name;
+    checkDup(); toast('Infos récupérées ✔');
+  } catch { toast('Erreur de recherche'); }
+};
+
+let stream = null;
+$('#btnScan').onclick = async () => {
+  if (!('BarcodeDetector' in window)) return toast('Scan non supporté sur ce navigateur');
+  try {
+    const det = new BarcodeDetector({ formats:['ean_13'] });
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    const v = $('#video'); v.srcObject = stream; await v.play();
+    $('#dlgScan').showModal();
+    const loop = async () => {
+      if (!stream) return;
+      const codes = await det.detect(v).catch(()=>[]);
+      if (codes.length) { form.elements.isbn.value = codes[0].rawValue; stopScan(); checkDup(); toast('ISBN scanné'); if (navigator.onLine) $('#btnLookup').click(); }
+      else requestAnimationFrame(loop);
+    };
+    loop();
+  } catch { toast('Caméra inaccessible'); }
+};
+function stopScan(){ if (stream) stream.getTracks().forEach(t=>t.stop()); stream = null; $('#dlgScan').close(); }
+$('#btnScanClose').onclick = stopScan;
+
+/* =====================================================================
+   SECTION 6 : SAUVEGARDE (export / import) + statistiques
+   ===================================================================== */
+function download(name, content, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type })); a.download = name; a.click();
+}
+const stamp = () => new Date().toISOString().slice(0,10);
+$('#btnExport').onclick = () => download(`mes-livres-${stamp()}.json`, JSON.stringify(books,null,1), 'application/json');
+$('#btnExportCsv').onclick = () => {
+  const cols = ['titre','auteur','editeur','genre','statut','priorite','prix','isbn','lien','recoPar','dateLecture','note','notes'];
+  const csv = [cols.join(';'), ...books.map(b => cols.map(c => `"${(b[c]??'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
+  download(`mes-livres-${stamp()}.csv`, '﻿'+csv, 'text/csv');
+};
+$('#btnImport').onclick = () => $('#fileImport').click();
+$('#fileImport').onchange = async e => {
+  try {
+    const data = JSON.parse(await e.target.files[0].text());
+    if (!Array.isArray(data)) throw 0;
+    // Fusion : on ajoute les livres absents, on remplace ceux qui ont le même identifiant
+    const ids = new Map(books.map((b,i)=>[b.id,i]));
+    data.forEach(b => ids.has(b.id) ? books[ids.get(b.id)] = b : books.push(b));
+    save(); render(); toast(data.length + ' livres importés');
+  } catch { toast('Fichier invalide'); }
+  e.target.value = '';
+};
+$('#btnMenu').onclick = () => {
+  const n = s => books.filter(b=>b.statut===s).length;
+  const year = new Date().getFullYear();
+  const luAn = books.filter(b=>b.statut==='lu' && (b.dateLecture||'').startsWith(year)).length;
+  const budget = books.filter(b=>b.statut==='a_acheter').reduce((s,b)=>s+(+b.prix||0),0);
+  $('#stats').innerHTML = `📊 ${books.length} livres · ${n('a_acheter')} à acheter (≈ ${budget.toFixed(2).replace('.',',')} €) · ${n('a_lire')} à lire · ${n('lu')} lus dont ${luAn} en ${year}`;
+  $('#dlgMenu').showModal();
+};
+$('#btnMenuClose').onclick = () => $('#dlgMenu').close();
+
+/* =====================================================================
+   SECTION 7 : NAVIGATION + DÉMARRAGE
+   ===================================================================== */
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  tab = b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('active', x===b));
+  $('#sort').value = tab==='lu' ? 'lecture' : tab==='a_acheter' ? 'priorite' : 'ajout';
+  render();
+});
+$('#q').addEventListener('input', render);
+$('#sort').addEventListener('change', render);
+$('#fGenre').addEventListener('change', render);
+$('#btnAdd').onclick = () => openForm(null);
+
+// Enregistre le service worker = fonctionnement hors ligne
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+render();
+</script>
+</body>
+</html>
