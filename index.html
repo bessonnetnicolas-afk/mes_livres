@@ -23,7 +23,7 @@ header h1 button{background:none;border:0;color:#fff;font-size:1.3rem;cursor:poi
 .search{display:flex;gap:6px}
 .search input{flex:1;padding:10px 12px;border-radius:10px;border:0;font-size:1rem}
 .tabs{display:flex;gap:4px;margin-top:10px;overflow-x:auto}
-.tabs button{flex:1;background:transparent;border:0;color:#f3e6da;padding:10px 6px;font-size:.9rem;border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
+.tabs button{flex:1;background:transparent;border:0;color:#f3e6da;padding:10px 3px;font-size:.85rem;border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
 .tabs button.active{color:#fff;border-bottom-color:#f5c08a;font-weight:600}
 .toolbar{display:flex;gap:8px;padding:10px 14px;align-items:center}
 .toolbar select{padding:7px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:.85rem}
@@ -65,6 +65,9 @@ label input,label select,label textarea{width:100%;margin-top:3px;padding:9px;bo
 .warn{background:#fff4e5;border:2px solid #f5c08a;border-radius:8px;padding:10px;font-size:.95rem;margin-top:10px;display:none}
 .warn.lu{background:#ecfdf3;border-color:#86efac} .warn.a_lire{background:#eff6ff;border-color:#93c5fd}
 .warn button{margin-top:6px}
+.checks{display:flex;gap:8px}
+.chk{flex:1;display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:9px;font-size:.92rem;color:var(--ink);background:#faf6f1}
+.chk input{width:20px;height:20px;flex-shrink:0;margin:0;accent-color:var(--brand2)}
 details.resume{margin-top:7px;font-size:.85rem;color:#4a3d34}
 details.resume summary{cursor:pointer;color:var(--brand2);font-weight:600}
 details.resume p{margin:6px 0 0;white-space:pre-line;line-height:1.4}
@@ -85,6 +88,7 @@ video{width:100%;border-radius:10px;background:#000}
     <button data-tab="a_acheter" class="active">À acheter</button>
     <button data-tab="a_lire">À lire</button>
     <button data-tab="lu">Lus</button>
+    <button data-tab="biblio">Ma biblio</button>
     <button data-tab="tous">Tous</button>
   </nav>
 </header>
@@ -123,17 +127,15 @@ video{width:100%;border-radius:10px;background:#000}
       <button type="button" class="btn danger" id="btnCoverDel" style="display:none">Retirer</button>
       <input type="file" id="coverFile" accept="image/*" capture="environment" hidden>
     </div>
+    <!-- Statut par cases à cocher : aucune case = « À acheter » -->
+    <div class="full checks">
+      <label class="chk"><input type="checkbox" name="lu"> ✅ Déjà lu</label>
+      <label class="chk"><input type="checkbox" name="possede"> 📚 Dans ma bibliothèque</label>
+    </div>
     <label class="full">Titre *<input name="titre" required></label>
     <label>Auteur<input name="auteur" list="dlAuteurs"></label>
     <label>Maison d'édition<input name="editeur" list="dlEditeurs"></label>
     <label>Genre<input name="genre" list="dlGenres"></label>
-    <label>Statut
-      <select name="statut">
-        <option value="a_acheter">À acheter</option>
-        <option value="a_lire">Possédé, à lire</option>
-        <option value="lu">Lu</option>
-      </select>
-    </label>
     <label>Priorité
       <select name="priorite"><option value="1">Haute</option><option value="2" selected>Moyenne</option><option value="3">Basse</option></select>
     </label>
@@ -193,6 +195,9 @@ const $ = s => document.querySelector(s);
 const STATUTS = { a_acheter:'À acheter', a_lire:'À lire', lu:'Lu' };
 const PRIOS = { 1:'Haute', 2:'Moyenne', 3:'Basse' };
 let tab = 'a_acheter', editId = null, note = 0, cover = '';
+let lastChecks = { lu:false, possede:false };   // cases cochées lors du dernier ajout
+/* Livre présent chez moi ? (les anciens livres « À lire » sont considérés comme possédés) */
+const isOwned = b => b.possede ?? (b.statut === 'a_lire');
 
 /* Normalise un texte pour comparer (minuscules, sans accents ni ponctuation) */
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
@@ -206,7 +211,7 @@ function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.classLis
 function render(){
   const q = norm($('#q').value), g = $('#fGenre').value, sort = $('#sort').value;
   // Une recherche cherche dans TOUS les livres (pour savoir en librairie si on l'a déjà lu)
-  let list = books.filter(b => q ? true : (tab==='tous' || b.statut===tab));
+  let list = books.filter(b => q ? true : tab==='tous' || (tab==='biblio' ? isOwned(b) : b.statut===tab));
   if (q) list = list.filter(b => norm([b.titre,b.auteur,b.editeur,b.isbn,b.genre,b.recoPar,b.resume].join(' ')).includes(q));
   if (g) list = list.filter(b => b.genre === g);
 
@@ -228,6 +233,7 @@ function render(){
 /* Construit la carte HTML d'un livre */
 function card(b){
   const tags = [
+    b.statut==='lu' && isOwned(b) && '📚 Ma bibliothèque',
     b.genre, b.statut==='a_acheter' && 'Priorité ' + PRIOS[b.priorite],
     b.prix && (+b.prix).toFixed(2).replace('.',',') + ' €',
     b.recoPar && 'Reco : ' + b.recoPar,
@@ -265,7 +271,7 @@ $('#list').addEventListener('click', e => {
   const btn = e.target.closest('button[data-act]'); if (!btn) return;
   const b = books.find(x => x.id === btn.dataset.id);
   if (btn.dataset.act === 'edit') return openForm(b);
-  if (btn.dataset.act === 'achete') { b.statut = 'a_lire'; toast('Déplacé dans « À lire »'); }
+  if (btn.dataset.act === 'achete') { b.statut = 'a_lire'; b.possede = true; toast('Déplacé dans « À lire »'); }
   if (btn.dataset.act === 'lu') { b.statut = 'lu'; b.dateLecture = b.dateLecture || new Date().toISOString().slice(0,10); toast('Bonne lecture terminée ! 📖'); }
   save(); render();
 });
@@ -279,8 +285,10 @@ function openForm(b){
   form.reset();
   $('#formTitle').textContent = b ? 'Modifier le livre' : 'Ajouter un livre';
   $('#btnDelete').style.display = b ? '' : 'none';
-  if (b) Object.keys(b).forEach(k => { if (form.elements[k]) form.elements[k].value = b[k] ?? ''; });
-  else form.elements.statut.value = (tab==='tous' ? 'a_acheter' : tab);
+  if (b) Object.keys(b).forEach(k => { if (form.elements[k] && form.elements[k].type!=='checkbox') form.elements[k].value = b[k] ?? ''; });
+  // Cases à cocher : livre existant = son état ; nouveau livre = mêmes cases que le dernier ajout (pratique en série)
+  form.elements.lu.checked = b ? b.statut==='lu' : lastChecks.lu;
+  form.elements.possede.checked = b ? isOwned(b) : lastChecks.possede;
   setNote(b ? (b.note||0) : 0);
   setCover(b ? (b.cover||'') : '');
   checkDup();
@@ -295,7 +303,7 @@ $('#stars').addEventListener('click', e => { const n=+e.target.dataset.n; if(n) 
 
 /* Message selon le statut du livre déjà présent dans la collection */
 function dupMsg(b){
-  if (b.statut==='lu') return `✅ Livre déjà lu${b.dateLecture?' le '+new Date(b.dateLecture).toLocaleDateString('fr-FR'):''}${b.note?' · '+'★'.repeat(b.note):''}`;
+  if (b.statut==='lu') return `✅ Livre déjà lu${b.dateLecture?' le '+new Date(b.dateLecture).toLocaleDateString('fr-FR'):''}${b.note?' · '+'★'.repeat(b.note):''}${isOwned(b)?' · 📚 dans ta bibliothèque':''}`;
   if (b.statut==='a_lire') return '📦 Livre déjà acheté (pas encore lu)';
   return '🛒 Livre déjà dans ta liste à acheter';
 }
@@ -320,7 +328,11 @@ form.addEventListener('submit', e => {
   const f = Object.fromEntries(new FormData(form));
   f.titre = f.titre.trim(); if (!f.titre) return;
   f.priorite = +f.priorite; f.note = note; f.cover = cover;
-  if (f.statut==='lu' && !f.dateLecture) f.dateLecture = new Date().toISOString().slice(0,10);
+  // Statut déduit des 2 cases : lu → « Lu » ; possédé non lu → « À lire » ; sinon → « À acheter »
+  f.possede = form.elements.possede.checked;
+  f.statut = form.elements.lu.checked ? 'lu' : f.possede ? 'a_lire' : 'a_acheter';
+  delete f.lu;
+  if (!editId) lastChecks = { lu: f.statut==='lu', possede: f.possede };
   if (editId) Object.assign(books.find(b=>b.id===editId), f);
   else books.push({ id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), ajout: Date.now(), ...f });
   save(); $('#dlgBook').close(); render(); toast('Livre enregistré');
@@ -447,7 +459,7 @@ function download(name, content, type){
 const stamp = () => new Date().toISOString().slice(0,10);
 $('#btnExport').onclick = () => download(`mes-livres-${stamp()}.json`, JSON.stringify(books,null,1), 'application/json');
 $('#btnExportCsv').onclick = () => {
-  const cols = ['titre','auteur','editeur','genre','statut','priorite','prix','isbn','lien','recoPar','dateLecture','note','notes','resume'];
+  const cols = ['titre','auteur','editeur','genre','statut','possede','priorite','prix','isbn','lien','recoPar','dateLecture','note','notes','resume'];
   const csv = [cols.join(';'), ...books.map(b => cols.map(c => `"${(b[c]??'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
   download(`mes-livres-${stamp()}.csv`, '﻿'+csv, 'text/csv');
 };
@@ -468,7 +480,7 @@ $('#btnMenu').onclick = () => {
   const year = new Date().getFullYear();
   const luAn = books.filter(b=>b.statut==='lu' && (b.dateLecture||'').startsWith(year)).length;
   const budget = books.filter(b=>b.statut==='a_acheter').reduce((s,b)=>s+(+b.prix||0),0);
-  $('#stats').innerHTML = `📊 ${books.length} livres · ${n('a_acheter')} à acheter (≈ ${budget.toFixed(2).replace('.',',')} €) · ${n('a_lire')} à lire · ${n('lu')} lus dont ${luAn} en ${year}`;
+  $('#stats').innerHTML = `📊 ${books.length} livres · ${n('a_acheter')} à acheter (≈ ${budget.toFixed(2).replace('.',',')} €) · ${n('a_lire')} à lire · ${n('lu')} lus dont ${luAn} en ${year} · ${books.filter(isOwned).length} dans ta bibliothèque`;
   $('#dlgMenu').showModal();
 };
 $('#btnMenuClose').onclick = () => $('#dlgMenu').close();
@@ -487,7 +499,7 @@ $('#tabs').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   tab = b.dataset.tab;
   document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('active', x===b));
-  $('#sort').value = tab==='lu' ? 'lecture' : tab==='a_acheter' ? 'priorite' : 'ajout';
+  $('#sort').value = tab==='lu' ? 'lecture' : tab==='a_acheter' ? 'priorite' : tab==='biblio' ? 'titre' : 'ajout';
   render();
 });
 $('#q').addEventListener('input', render);
