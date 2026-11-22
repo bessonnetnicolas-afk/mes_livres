@@ -172,6 +172,10 @@ video{width:100%;border-radius:10px;background:#000}
     <input type="file" id="fileImport" accept=".json,application/json" hidden>
   </div>
   <p id="stats" style="font-size:.85rem"></p>
+  <h2 style="margin-top:16px">Clé Google Books</h2>
+  <p style="font-size:.85rem;color:var(--muted)">Facultative mais conseillée : sans clé, Google refuse souvent les recherches. Elle reste sur ce téléphone uniquement.</p>
+  <div class="row"><input id="gkey" type="password" placeholder="AIza…" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:8px">
+  <button class="btn primary" id="btnGkey">OK</button></div>
   <div class="foot"><button class="btn" id="btnMenuClose">Fermer</button></div>
 </div></dialog>
 
@@ -180,6 +184,7 @@ video{width:100%;border-radius:10px;background:#000}
    SECTION 1 : DONNÉES (lecture / écriture dans le stockage local)
    ===================================================================== */
 const KEY = 'mesLivres.v1';
+const GKEY = 'mesLivres.googleKey';
 let books = [];
 try { books = JSON.parse(localStorage.getItem(KEY)) || []; } catch { books = []; }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(books)); } catch { toast('⚠️ Enregistrement impossible'); } };
@@ -192,7 +197,8 @@ let tab = 'a_acheter', editId = null, note = 0, cover = '';
 /* Normalise un texte pour comparer (minuscules, sans accents ni ponctuation) */
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
 const esc = s => (s??'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+let toastTimer;
+function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),ms); }
 
 /* =====================================================================
    SECTION 2 : AFFICHAGE DE LA LISTE
@@ -332,7 +338,12 @@ $('#btnDelete').onclick = () => {
 async function lookupIsbn(isbn){
   const info = { titre:'', auteur:'', editeur:'', genre:'', images:[] };
   try {
-    const d = await (await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`)).json();
+    // Clé API perso (facultative) : évite le quota partagé de Google, souvent épuisé sans clé
+    const key = localStorage.getItem(GKEY);
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}` + (key ? `&key=${encodeURIComponent(key)}` : ''));
+    if (r.status === 429) info.err = 'quota';
+    else if (!r.ok) info.err = 'google' + r.status;
+    const d = await r.json();
     const v = d.items?.[0]?.volumeInfo;
     if (v) {
       info.titre = v.title + (v.subtitle ? ' — ' + v.subtitle : '');
@@ -354,7 +365,7 @@ async function lookupIsbn(isbn){
       if (o.cover?.medium) info.images.push(o.cover.medium);
     }
   } catch {}
-  return info.titre ? info : null;
+  return info;
 }
 
 $('#btnLookup').onclick = async () => {
@@ -363,7 +374,11 @@ $('#btnLookup').onclick = async () => {
   if (!navigator.onLine) return toast('Pas de connexion : saisie manuelle');
   toast('Recherche…');
   const info = await lookupIsbn(isbn);
-  if (!info) return toast('ISBN introuvable, complète à la main');
+  if (!info.titre) {
+    if (info.err === 'quota') return toast(localStorage.getItem(GKEY) ? 'Quota Google dépassé pour aujourd\'hui' : 'Google Books saturé : ajoute ta clé API (menu ⋮)', 5000);
+    if (info.err) return toast('Erreur Google Books (' + info.err.slice(6) + ') — vérifie ta clé API', 5000);
+    return toast('Livre introuvable dans les bases, complète à la main', 4000);
+  }
   const f = form.elements;
   ['titre','auteur','editeur','genre','resume'].forEach(k => { if (!f[k].value && info[k]) f[k].value = info[k]; });
   // Couverture : on essaie chaque image trouvée, en version allégée
@@ -457,6 +472,13 @@ $('#btnMenu').onclick = () => {
   $('#dlgMenu').showModal();
 };
 $('#btnMenuClose').onclick = () => $('#dlgMenu').close();
+/* Clé API Google Books : stockée à part (jamais dans les exports) */
+$('#gkey').value = localStorage.getItem(GKEY) || '';
+$('#btnGkey').onclick = () => {
+  const k = $('#gkey').value.trim();
+  k ? localStorage.setItem(GKEY, k) : localStorage.removeItem(GKEY);
+  toast(k ? 'Clé enregistrée ✔' : 'Clé supprimée');
+};
 
 /* =====================================================================
    SECTION 7 : NAVIGATION + DÉMARRAGE

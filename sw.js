@@ -1,6 +1,6 @@
 // ===== Service worker : met l'appli en cache pour qu'elle marche hors ligne =====
 // Changer le numéro de version après chaque modification des fichiers pour forcer la mise à jour.
-const CACHE = 'mes-livres-v3';
+const CACHE = 'mes-livres-v4';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 // Installation : on stocke les fichiers de l'appli
