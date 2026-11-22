@@ -33,6 +33,10 @@ main{padding:0 14px}
 .book{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;border-left:5px solid var(--line)}
 .book.a_acheter{border-left-color:var(--acheter)} .book.a_lire{border-left-color:var(--alire)} .book.lu{border-left-color:var(--lu)}
 .book .top{display:flex;justify-content:space-between;gap:8px}
+.book .head{display:flex;gap:10px}
+.cover{width:48px;height:72px;object-fit:cover;border-radius:4px;flex-shrink:0;background:#eee}
+.coverbox{display:flex;gap:10px;align-items:center}
+.coverbox img{width:60px;height:90px;object-fit:cover;border-radius:5px;background:#f1e7dc}
 .book h3{margin:0;font-size:1rem}
 .book .meta{color:var(--muted);font-size:.85rem;margin-top:3px}
 .badge{font-size:.72rem;padding:3px 8px;border-radius:20px;color:#fff;white-space:nowrap;height:fit-content}
@@ -58,7 +62,12 @@ label input,label select,label textarea{width:100%;margin-top:3px;padding:9px;bo
 .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
 .btn.danger{color:#b91c1c;border-color:#fca5a5}
 .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
-.warn{background:#fff4e5;border:1px solid #f5c08a;border-radius:8px;padding:8px 10px;font-size:.85rem;margin-top:10px;display:none}
+.warn{background:#fff4e5;border:2px solid #f5c08a;border-radius:8px;padding:10px;font-size:.95rem;margin-top:10px;display:none}
+.warn.lu{background:#ecfdf3;border-color:#86efac} .warn.a_lire{background:#eff6ff;border-color:#93c5fd}
+.warn button{margin-top:6px}
+details.resume{margin-top:7px;font-size:.85rem;color:#4a3d34}
+details.resume summary{cursor:pointer;color:var(--brand2);font-weight:600}
+details.resume p{margin:6px 0 0;white-space:pre-line;line-height:1.4}
 .stars span{font-size:1.5rem;cursor:pointer;color:#d6c7b8}
 .stars span.on{color:#e0a100}
 video{width:100%;border-radius:10px;background:#000}
@@ -108,6 +117,12 @@ video{width:100%;border-radius:10px;background:#000}
         <button type="button" class="btn" id="btnLookup" title="Remplir depuis l'ISBN (connexion requise)">🔎</button>
       </div>
     </label>
+    <div class="full coverbox">
+      <img id="coverPrev" alt="" style="display:none">
+      <button type="button" class="btn" id="btnCoverPhoto">🖼️ Photo de couverture</button>
+      <button type="button" class="btn danger" id="btnCoverDel" style="display:none">Retirer</button>
+      <input type="file" id="coverFile" accept="image/*" capture="environment" hidden>
+    </div>
     <label class="full">Titre *<input name="titre" required></label>
     <label>Auteur<input name="auteur" list="dlAuteurs"></label>
     <label>Maison d'édition<input name="editeur" list="dlEditeurs"></label>
@@ -127,6 +142,7 @@ video{width:100%;border-radius:10px;background:#000}
     <label>Recommandé par<input name="recoPar"></label>
     <label>Date de lecture<input name="dateLecture" type="date"></label>
     <div class="full"><label>Ma note</label><div class="stars" id="stars"></div></div>
+    <label class="full">4ᵉ de couverture (résumé)<textarea name="resume" rows="4"></textarea></label>
     <label class="full">Notes<textarea name="notes" rows="2"></textarea></label>
   </div>
   <div class="warn" id="dupWarn"></div>
@@ -171,7 +187,7 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(books)); } c
 const $ = s => document.querySelector(s);
 const STATUTS = { a_acheter:'À acheter', a_lire:'À lire', lu:'Lu' };
 const PRIOS = { 1:'Haute', 2:'Moyenne', 3:'Basse' };
-let tab = 'a_acheter', editId = null, note = 0;
+let tab = 'a_acheter', editId = null, note = 0, cover = '';
 
 /* Normalise un texte pour comparer (minuscules, sans accents ni ponctuation) */
 const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
@@ -185,7 +201,7 @@ function render(){
   const q = norm($('#q').value), g = $('#fGenre').value, sort = $('#sort').value;
   // Une recherche cherche dans TOUS les livres (pour savoir en librairie si on l'a déjà lu)
   let list = books.filter(b => q ? true : (tab==='tous' || b.statut===tab));
-  if (q) list = list.filter(b => norm([b.titre,b.auteur,b.editeur,b.isbn,b.genre,b.recoPar].join(' ')).includes(q));
+  if (q) list = list.filter(b => norm([b.titre,b.auteur,b.editeur,b.isbn,b.genre,b.recoPar,b.resume].join(' ')).includes(q));
   if (g) list = list.filter(b => b.genre === g);
 
   const cmp = {
@@ -215,11 +231,12 @@ function card(b){
   const next = b.statut==='a_acheter' ? `<button class="go" data-act="achete" data-id="${b.id}">✔ Acheté</button>`
             : b.statut==='a_lire'    ? `<button class="go" data-act="lu" data-id="${b.id}">✔ Lu</button>` : '';
   return `<div class="book ${b.statut}">
-    <div class="top"><div><h3>${esc(b.titre)}</h3>
-      <div class="meta">${esc(b.auteur||'Auteur inconnu')}${b.editeur?' · '+esc(b.editeur):''}${b.isbn?' · '+esc(b.isbn):''}</div></div>
+    <div class="top"><div class="head">${b.cover?`<img class="cover" src="${esc(b.cover)}" alt="" loading="lazy">`:''}<div><h3>${esc(b.titre)}</h3>
+      <div class="meta">${esc(b.auteur||'Auteur inconnu')}${b.editeur?' · '+esc(b.editeur):''}${b.isbn?' · '+esc(b.isbn):''}</div></div></div>
       <span class="badge ${b.statut}">${STATUTS[b.statut]}</span></div>
     ${tags?`<div class="tags">${tags}</div>`:''}
     ${b.notes?`<div class="meta" style="margin-top:6px">${esc(b.notes)}</div>`:''}
+    ${b.resume?`<details class="resume"><summary>4ᵉ de couverture</summary><p>${esc(b.resume)}</p></details>`:''}
     <div class="actions">${next}
       <button data-act="edit" data-id="${b.id}">Modifier</button>
       ${b.lien?`<a href="${esc(b.lien)}" target="_blank" rel="noopener">Lien ↗</a>`:''}
@@ -259,6 +276,7 @@ function openForm(b){
   if (b) Object.keys(b).forEach(k => { if (form.elements[k]) form.elements[k].value = b[k] ?? ''; });
   else form.elements.statut.value = (tab==='tous' ? 'a_acheter' : tab);
   setNote(b ? (b.note||0) : 0);
+  setCover(b ? (b.cover||'') : '');
   checkDup();
   $('#dlgBook').showModal();
 }
@@ -269,13 +287,25 @@ function setNote(n){
 }
 $('#stars').addEventListener('click', e => { const n=+e.target.dataset.n; if(n) setNote(n===note?0:n); });
 
-/* Détection de doublon : même ISBN, ou même titre + auteur */
+/* Message selon le statut du livre déjà présent dans la collection */
+function dupMsg(b){
+  if (b.statut==='lu') return `✅ Livre déjà lu${b.dateLecture?' le '+new Date(b.dateLecture).toLocaleDateString('fr-FR'):''}${b.note?' · '+'★'.repeat(b.note):''}`;
+  if (b.statut==='a_lire') return '📦 Livre déjà acheté (pas encore lu)';
+  return '🛒 Livre déjà dans ta liste à acheter';
+}
+
+/* Détection de doublon : même ISBN, ou même titre + auteur. Renvoie le livre trouvé. */
 function checkDup(){
   const f = form.elements, t = norm(f.titre.value), a = norm(f.auteur.value), i = norm(f.isbn.value);
   const dup = books.find(b => b.id!==editId && ((i && norm(b.isbn)===i) || (t && norm(b.titre)===t && (!a || !b.auteur || norm(b.auteur)===a))));
   const w = $('#dupWarn');
-  if (dup) { w.style.display='block'; w.innerHTML = `⚠️ Déjà dans ta liste : <b>${esc(dup.titre)}</b> (${STATUTS[dup.statut]}${dup.dateLecture?', lu le '+new Date(dup.dateLecture).toLocaleDateString('fr-FR'):''})`; }
-  else w.style.display='none';
+  if (dup) {
+    w.className = 'warn ' + dup.statut; w.style.display = 'block';
+    w.innerHTML = `<b>${dupMsg(dup)}</b><br>${esc(dup.titre)}${dup.auteur?' — '+esc(dup.auteur):''}
+      <br><button type="button" class="btn" id="btnOpenDup">Voir la fiche existante</button>`;
+    $('#btnOpenDup').onclick = () => openForm(dup);
+  } else w.style.display = 'none';
+  return dup;
 }
 ['titre','auteur','isbn'].forEach(n => form.elements[n].addEventListener('input', checkDup));
 
@@ -283,7 +313,7 @@ form.addEventListener('submit', e => {
   e.preventDefault();
   const f = Object.fromEntries(new FormData(form));
   f.titre = f.titre.trim(); if (!f.titre) return;
-  f.priorite = +f.priorite; f.note = note;
+  f.priorite = +f.priorite; f.note = note; f.cover = cover;
   if (f.statut==='lu' && !f.dateLecture) f.dateLecture = new Date().toISOString().slice(0,10);
   if (editId) Object.assign(books.find(b=>b.id===editId), f);
   else books.push({ id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), ajout: Date.now(), ...f });
@@ -298,22 +328,74 @@ $('#btnDelete').onclick = () => {
 /* =====================================================================
    SECTION 5 : ISBN — recherche en ligne (Open Library) et scan caméra
    ===================================================================== */
+/* 5a. Recherche des infos : Google Books d'abord (meilleur sur les livres français), Open Library en complément */
+async function lookupIsbn(isbn){
+  const info = { titre:'', auteur:'', editeur:'', genre:'', images:[] };
+  try {
+    const d = await (await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`)).json();
+    const v = d.items?.[0]?.volumeInfo;
+    if (v) {
+      info.titre = v.title + (v.subtitle ? ' — ' + v.subtitle : '');
+      info.auteur = (v.authors||[]).join(', ');
+      info.editeur = v.publisher || '';
+      info.genre = (v.categories||[])[0] || '';
+      // 4e de couverture : Google renvoie parfois du HTML, on ne garde que le texte
+      if (v.description) info.resume = new DOMParser().parseFromString(v.description,'text/html').body.textContent.trim();
+      const img = v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail;
+      if (img) info.images.push(img.replace('http:','https:').replace('&edge=curl',''));
+    }
+  } catch {}
+  try {
+    const o = (await (await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`)).json())['ISBN:'+isbn];
+    if (o) {
+      info.titre ||= o.title + (o.subtitle ? ' — ' + o.subtitle : '');
+      info.auteur ||= (o.authors||[]).map(a=>a.name).join(', ');
+      info.editeur ||= o.publishers?.[0]?.name || '';
+      if (o.cover?.medium) info.images.push(o.cover.medium);
+    }
+  } catch {}
+  return info.titre ? info : null;
+}
+
 $('#btnLookup').onclick = async () => {
   const isbn = form.elements.isbn.value.replace(/[^0-9X]/gi,'');
   if (!isbn) return toast('Saisis ou scanne un ISBN');
   if (!navigator.onLine) return toast('Pas de connexion : saisie manuelle');
-  try {
-    toast('Recherche…');
-    const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
-    const d = (await r.json())['ISBN:'+isbn];
-    if (!d) return toast('ISBN introuvable, complète à la main');
-    const f = form.elements;
-    if (!f.titre.value) f.titre.value = d.title + (d.subtitle ? ' — ' + d.subtitle : '');
-    if (!f.auteur.value && d.authors) f.auteur.value = d.authors.map(a=>a.name).join(', ');
-    if (!f.editeur.value && d.publishers) f.editeur.value = d.publishers[0].name;
-    checkDup(); toast('Infos récupérées ✔');
-  } catch { toast('Erreur de recherche'); }
+  toast('Recherche…');
+  const info = await lookupIsbn(isbn);
+  if (!info) return toast('ISBN introuvable, complète à la main');
+  const f = form.elements;
+  ['titre','auteur','editeur','genre','resume'].forEach(k => { if (!f[k].value && info[k]) f[k].value = info[k]; });
+  // Couverture : on essaie chaque image trouvée, en version allégée
+  if (!cover) for (const url of info.images) {
+    try { setCover(await compressImage(url)); break; } catch {}
+  }
+  // Si le site refuse la copie de l'image : on garde juste son adresse (visible seulement en ligne)
+  if (!cover && info.images[0]) setCover(info.images[0]);
+  checkDup(); toast('Infos récupérées ✔');
 };
+
+/* 5b. Couverture : réduction à 120 px de large + JPEG compressé (≈ 5 Ko par image) */
+async function compressImage(src){
+  const blob = src instanceof Blob ? src : await (await fetch(src)).blob();
+  const bmp = await createImageBitmap(blob);
+  if (bmp.width < 10) throw 'image vide';          // Open Library renvoie parfois une image de 1 px
+  const w = 120, h = Math.round(bmp.height * w / bmp.width);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.6);
+}
+function setCover(data){
+  cover = data;
+  $('#coverPrev').src = data || ''; $('#coverPrev').style.display = data ? '' : 'none';
+  $('#btnCoverDel').style.display = data ? '' : 'none';
+}
+$('#btnCoverPhoto').onclick = () => $('#coverFile').click();
+$('#coverFile').onchange = async e => {
+  const file = e.target.files[0]; e.target.value = '';
+  if (file) try { setCover(await compressImage(file)); } catch { toast('Image illisible'); }
+};
+$('#btnCoverDel').onclick = () => setCover('');
 
 let stream = null;
 $('#btnScan').onclick = async () => {
@@ -326,7 +408,12 @@ $('#btnScan').onclick = async () => {
     const loop = async () => {
       if (!stream) return;
       const codes = await det.detect(v).catch(()=>[]);
-      if (codes.length) { form.elements.isbn.value = codes[0].rawValue; stopScan(); checkDup(); toast('ISBN scanné'); if (navigator.onLine) $('#btnLookup').click(); }
+      if (codes.length) {
+        form.elements.isbn.value = codes[0].rawValue; stopScan();
+        const dup = checkDup();
+        if (dup) { toast(dupMsg(dup)); if (navigator.vibrate) navigator.vibrate([150,80,150]); }   // déjà dans la collection : pas de recherche en ligne
+        else { toast('ISBN scanné'); if (navigator.onLine) $('#btnLookup').click(); }
+      }
       else requestAnimationFrame(loop);
     };
     loop();
@@ -345,7 +432,7 @@ function download(name, content, type){
 const stamp = () => new Date().toISOString().slice(0,10);
 $('#btnExport').onclick = () => download(`mes-livres-${stamp()}.json`, JSON.stringify(books,null,1), 'application/json');
 $('#btnExportCsv').onclick = () => {
-  const cols = ['titre','auteur','editeur','genre','statut','priorite','prix','isbn','lien','recoPar','dateLecture','note','notes'];
+  const cols = ['titre','auteur','editeur','genre','statut','priorite','prix','isbn','lien','recoPar','dateLecture','note','notes','resume'];
   const csv = [cols.join(';'), ...books.map(b => cols.map(c => `"${(b[c]??'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
   download(`mes-livres-${stamp()}.csv`, '﻿'+csv, 'text/csv');
 };
